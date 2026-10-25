@@ -2,6 +2,7 @@
 
 import argparse
 import ast
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -20,6 +21,24 @@ INSTALL = (
 
 def markdown(text):
     return nbf.v4.new_markdown_cell(text.strip())
+
+
+def notes(chapter, section):
+    path = ROOT / "notebooks" / "notes" / f"{chapter}.md"
+    parts = re.split(r"(?m)^<!-- section: ([a-z_]+) -->\n", path.read_text(encoding="utf-8"))
+    sections = dict(zip(parts[1::2], parts[2::2], strict=True))
+    text = sections[section]
+    figures = re.findall(r"\]\(\.\./figures/([^)]*)\)", text)
+    for figure in figures:
+        if not (ROOT / "notebooks" / "figures" / figure).is_file():
+            raise FileNotFoundError(figure)
+    return markdown(
+        text.replace(
+            "](../figures/",
+            "](https://raw.githubusercontent.com/black-leg-nameko/"
+            "security-ml-sakuraiLab/main/notebooks/figures/",
+        )
+    )
 
 
 def code(text):
@@ -104,23 +123,11 @@ def notebook(cells):
 def chapter_one():
     return notebook(
         [
-            markdown("""
-# 第1章 — Colabの実行環境
-
-『セキュリティエンジニアのための機械学習』第1章に対応。
-Colabの **ランタイム → すべてのセルを実行** で環境確認と最小学習を実行する。
-無料のCPUランタイムで十分。GPU・TPU、Google Drive、APIキーは不要。
-インストールは新しいランタイムの最初に実行する。
-"""),
+            notes("01_environment", "introduction"),
+            notes("01_environment", "environment"),
             code(INSTALL),
             code(ENVIRONMENT),
-            markdown("""
-## 作業領域とランタイム
-
-Colabのファイルはセッション終了で失われる。第2章では結果をZIPにまとめて保存できる。
-依存パッケージはノートブック内に固定し、実行したバージョンも結果に記録する。
-ランタイムの制限・仕様は [Colab FAQ](https://research.google.com/colaboratory/faq.html) を参照。
-"""),
+            notes("01_environment", "runtime"),
             code("""
 from pathlib import Path
 
@@ -132,12 +139,7 @@ assert probe.read_text(encoding="utf-8") == "ready\\n"
 probe.unlink()
 print(f"Workspace: {workspace}")
 """),
-            markdown("""
-## 学習 → 未知データによる評価
-
-動作確認用の合成データを使う。セキュリティ上の検知性能を表すデータではない。
-標準化は訓練データだけから学習し、テストデータへ適用する。
-"""),
+            notes("01_environment", "workflow"),
             code("""
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression
@@ -157,43 +159,17 @@ print(f"Synthetic holdout accuracy: {accuracy_score(y_test, prediction):.3f}")
 ConfusionMatrixDisplay.from_predictions(y_test, prediction, colorbar=False)
 plt.show()
 """),
-            markdown("""
-第2章では実データの読み込み、重複・ラベルの監査、ハイパーパラメータ探索、
-閾値選択、テスト評価を順に進める。第2章のノートブックも単独で実行できる。
-"""),
+            notes("01_environment", "discussion"),
         ]
     )
 
 
 def chapter_two():
     cells = [
-        markdown("""
-# 第2章 — フィッシングサイトと迷惑メールの検出
-
-『セキュリティエンジニアのための機械学習』§2.2–2.3の独立した再実装。
-**ランタイム → すべてのセルを実行**。CPUで数分が目安（環境により変動）。
-第1章の事前実行、GitHub認証、手動ファイル配置は不要。
-
-| 対象 | 入力 | モデル | 陽性（1） |
-|---|---|---|---|
-| フィッシング | UCIの30個の既存特徴量 | ロジスティック回帰・決定木 | 元ラベル -1 |
-| 迷惑メール | Enron1の英語メール | TF-IDF + LightGBM | spamフォルダ |
-
-URLを入力して特徴量を収集する実装ではない。実サイトへの接続やメール送信は行わない。
-データの配布元・固定コミット・SHA-256をコードに記載する。
-"""),
+        notes("02_phishing_and_spam", "introduction"),
         code(INSTALL),
         code(ENVIRONMENT),
-        markdown("""
-## 1. データ取得と監査
-
-出版社の公開リポジトリからデータだけを取得する。SHA-256不一致は停止し、ZIPは展開せず読む。
-空データを除き、同じ入力でラベルが矛盾する行は全件除外、残りの重複は1件にまとめる。
-メールの重複判定は大文字小文字と空白の違いを無視する。本文自体は改変しない。
-
-**UCIの -1 はフィッシング、+1 は正常**。陽性が危険側を示すよう0/1に変換する。
-同じ特徴量の行を分割間にまたがせないため、書籍の数値とは直接比較できない。
-"""),
+        notes("02_phishing_and_spam", "data"),
         *definitions("data"),
         code("""
 cache_dir = Path("data")
@@ -204,13 +180,7 @@ display(pd.DataFrame({
     "phishing": phishing.label.value_counts(), "enron1": emails.label.value_counts(),
 }).rename(index={0: "legitimate / ham", 1: "phishing / spam"}))
 """),
-        markdown("""
-## 2. 訓練・検証・テストの分離
-
-60%を訓練、20%を閾値選択、20%を最終テストに使い、クラス比率を維持する。
-Optunaは訓練部分の層化3分割CVでF1を最大化する。標準化とTF-IDFの語彙・IDFも各fold内で学習する。
-探索の並列化は行わず、乱数と試行回数を固定する。TF-IDFは疎行列のままLightGBMへ渡す。
-"""),
+        notes("02_phishing_and_spam", "split"),
         *definitions("modeling"),
         code("""
 config = ExperimentConfig(seed=101, trials=8, folds=3, max_false_positive_rate=0.01)
@@ -226,7 +196,7 @@ display(pd.DataFrame({
     "enron1": {k: len(v) for k, v in vars(email_split).items()},
 }).T)
 """),
-        markdown("## 3. ロジスティック回帰・決定木の探索と学習"),
+        notes("02_phishing_and_spam", "classifiers"),
         code("""
 models, studies = {}, {}
 for kind in ("logistic", "tree"):
@@ -237,21 +207,14 @@ for kind in ("logistic", "tree"):
 selected_phishing = max(("logistic", "tree"), key=lambda name: studies[name].best_value)
 print(f"CV-selected phishing model: {selected_phishing}")
 """),
-        markdown("## 4. TF-IDF + LightGBMの探索と学習"),
+        notes("02_phishing_and_spam", "text"),
         code("""
 models["spam"], studies["spam"] = tune_model(
     "spam", X_email.iloc[email_split.train], y_email.iloc[email_split.train], config,
 )
 print(f"spam: CV F1 = {studies['spam'].best_value:.4f}, params = {studies['spam'].best_params}")
 """),
-        markdown("""
-## 5. 検証データで閾値を決める
-
-検証データ上の誤検知率が1%以下になる点のうち、再現率が最大の閾値を採用する。
-同点なら高い閾値を使う。陽性判定は `score >= threshold`。
-これは検証標本上の制約であり、テストや実運用の誤検知率を保証しない。
-スコアは較正した確率ではない。閾値を決めた後はモデルを再学習しない。
-"""),
+        notes("02_phishing_and_spam", "threshold"),
         *definitions("evaluation"),
         code("""
 tasks = {
@@ -269,13 +232,7 @@ for name, (X, y, split) in tasks.items():
 columns = ["threshold", "precision", "recall", "false_positive_rate"]
 display(pd.DataFrame(validation_metrics).T[columns])
 """),
-        markdown("""
-## 6. 最終テスト
-
-通常の閾値0.5と検証で決めた閾値を併記する。平均適合率（AP）はスコアの順位全体を評価する。
-比較用の多数派クラス分類器も訓練データだけで学習する。
-テスト結果を使ってモデル・探索範囲・閾値を選び直さない。
-"""),
+        notes("02_phishing_and_spam", "metrics"),
         code("""
 from sklearn.dummy import DummyClassifier
 from sklearn.metrics import ConfusionMatrixDisplay, PrecisionRecallDisplay
@@ -319,14 +276,7 @@ fig.tight_layout()
 fig.savefig(output_dir / "precision_recall.png", bbox_inches="tight")
 plt.show()
 """),
-        markdown("""
-## 7. 特徴量とデータ由来の偏り
-
-ロジスティック回帰は標準化後の係数の絶対値、決定木は不純度の減少、LightGBMはgainを表示する。
-重要度は因果関係を示さず、モデルをまたいで値の大きさを比較できない。
-書籍が注目する `subject` の出現数も訓練データだけで確認する。
-この単語の偏りだけで検知回避が可能とは結論できない。
-"""),
+        notes("02_phishing_and_spam", "bias"),
         code("""
 fig, axes = plt.subplots(1, 3, figsize=(15, 4))
 for axis, (name, model) in zip(axes, models.items(), strict=True):
@@ -346,14 +296,7 @@ subject_audit = email_train.assign(
 )
 display(subject_audit.rename(index={0: "ham", 1: "spam"}))
 """),
-        markdown("""
-## 8. 推論と結果の保存
-
-以下は手入力した英語テキストの推論例。判定の正しさを保証するものではない。
-学習データは古く、送信者・時系列・キャンペーンの独立性も確認できない。
-重複排除後も近似重複やデータセット特有の偏りは残る。現代の実メールや日本語メールへの性能は未検証。
-フィッシングの30特徴量には現在取得しにくいものも含まれるため、実運用には別途設計が必要。
-"""),
+        notes("02_phishing_and_spam", "inference"),
         code("""
 import shutil
 
@@ -390,6 +333,7 @@ if DOWNLOAD_RESULTS:
     from google.colab import files
     files.download(archive_path)
 """),
+        notes("02_phishing_and_spam", "discussion"),
         markdown("""
 ## 出典
 
