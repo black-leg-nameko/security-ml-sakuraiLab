@@ -21,6 +21,8 @@ where = ["src"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# Preserve the book's formatting and repeated imports in the main notebooks.
+extend-exclude = ["notebooks/01_environment.ipynb", "notebooks/02_phishing_and_spam.ipynb"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

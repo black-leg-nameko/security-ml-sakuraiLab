@@ -18,7 +18,7 @@ def main():
         book = nbformat.read(path, as_version=4)
         client = NotebookClient(
             book,
-            timeout=900,
+            timeout=3600,
             kernel_name="python3",
             resources={"metadata": {"path": str(ROOT)}},
         )

@@ -4,4 +4,5 @@ scipy==1.15.3
 scikit-learn==1.7.2
 matplotlib==3.10.3
 optuna==4.5.0
+optuna-integration[lightgbm]==4.5.0
 lightgbm==4.6.0

@@ -9,3 +9,8 @@ artifacts/
 *.executed.ipynb
 security-ml-lab/
 security-ml-results.zip
+/dataset.csv
+/dataset.csv.*
+/enron1.zip
+/enron1.zip.*
+/enron1/
