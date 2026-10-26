@@ -51,7 +51,6 @@ def save(fig, name):
     fig.savefig(
         OUTPUT / f"{name}.png", dpi=170, facecolor="white", metadata={"Software": "Matplotlib"}
     )
-    fig.savefig(OUTPUT / f"{name}.svg", facecolor="white", metadata={"Date": None})
     plt.close(fig)
 
 
@@ -71,7 +70,7 @@ def workflow():
         arrow(ax, (left + 0.087, 0.62), (right - 0.087, 0.62))
     ax.plot([centers[3], centers[3], centers[2]], [0.47, 0.24, 0.24], color=ORANGE)
     arrow(ax, (centers[2], 0.24), (centers[2], 0.47), ORANGE)
-    ax.text(0.60, 0.11, "訓練・検証の結果を使って見直す", ha="center", color=ORANGE)
+    ax.text(0.60, 0.11, "訓練と評価を繰り返して見直す", ha="center", color=ORANGE)
     ax.text(
         0.5,
         0.91,
@@ -86,47 +85,38 @@ def workflow():
 
 def split_cv():
     fig, ax = canvas(12, 5)
-    widths = [0.54, 0.18, 0.18]
-    colors = [TEAL, ORANGE, INK]
-    labels = ["訓練 60%", "検証 20%", "最終テスト 20%"]
-    x = 0.05
-    for width, color, label in zip(widths, colors, labels, strict=True):
+    for x, width, color, label in [
+        (0.05, 0.72, TEAL, "訓練用 80%"),
+        (0.77, 0.18, INK, "テスト用 20%"),
+    ]:
         ax.add_patch(
-            Rectangle((x, 0.76), width, 0.13, facecolor=color, edgecolor="white", linewidth=2)
+            Rectangle((x, 0.77), width, 0.12, facecolor=color, edgecolor="white", linewidth=2)
         )
-        ax.text(x + width / 2, 0.825, label, ha="center", va="center", color="white", weight="bold")
-        x += width
-    ax.text(0.32, 0.68, "訓練部分の内側で3分割交差検証", ha="center", color=INK, fontsize=12)
-    for row in range(3):
-        y = 0.52 - 0.14 * row
-        ax.text(0.035, y + 0.045, f"{row + 1}", ha="right", va="center", color=INK)
-        for col in range(3):
-            x = 0.05 + col * 0.18
+        ax.text(x + width / 2, 0.83, label, ha="center", va="center", color="white", weight="bold")
+    ax.text(0.41, 0.68, "訓練部分の内側で5分割交差検証", ha="center", color=INK)
+    for row in range(5):
+        y = 0.54 - 0.09 * row
+        ax.text(0.035, y + 0.03, f"{row + 1}", ha="right", va="center", color=INK)
+        for col in range(5):
+            x = 0.05 + col * 0.144
             color = ORANGE if col == row else TEAL
             ax.add_patch(
-                Rectangle((x, y), 0.18, 0.09, facecolor=color, edgecolor="white", linewidth=2)
+                Rectangle((x, y), 0.144, 0.06, facecolor=color, edgecolor="white", linewidth=2)
             )
             ax.text(
-                x + 0.09,
-                y + 0.045,
+                x + 0.072,
+                y + 0.03,
                 "CV評価" if col == row else "学習",
                 ha="center",
                 va="center",
                 color="white",
             )
-    box(ax, (0.68, 0.43), 0.15, 0.23, "閾値を選ぶ", color="#fbefe5")
-    box(ax, (0.86, 0.43), 0.15, 0.23, "構成を決めてから\n最終評価", color="#edf0f4")
-    ax.text(
-        0.32,
-        0.10,
-        "標準化・語彙・IDFも、各回の学習部分だけで求める",
-        ha="center",
-        color=TEAL,
-    )
+    box(ax, (0.86, 0.39), 0.15, 0.23, "正解率・\n混同行列の評価", color="#edf0f4")
+    ax.text(0.41, 0.06, "5回の正解率を平均して設定を比較する", ha="center", color=TEAL)
     ax.text(
         0.5,
         0.97,
-        "学習、閾値選択、最終評価を分ける",
+        "本書の分割：訓練80%・テスト20%",
         ha="center",
         weight="bold",
         color=INK,
@@ -139,7 +129,7 @@ def sigmoid():
     fig, ax = plt.subplots(figsize=(8.5, 4.1), layout="constrained")
     z = np.linspace(-6, 6, 500)
     ax.plot(z, 1 / (1 + np.exp(-z)), color=TEAL, linewidth=2.5)
-    for threshold, color in [(0.5, INK), (0.8, ORANGE)]:
+    for threshold, color in [(0.5, INK)]:
         boundary = np.log(threshold / (1 - threshold))
         ax.axhline(threshold, color=color, linestyle="--", alpha=0.7)
         ax.vlines(boundary, 0, threshold, color=color, linestyle=":")
@@ -148,9 +138,9 @@ def sigmoid():
     ax.set(
         xlim=(-6, 6),
         ylim=(0, 1.05),
-        xlabel=r"重み付き和 $z = w^T\widetilde{x} + b$",
+        xlabel=r"重み付き和 $z = w^T x + b$",
         ylabel=r"スコア $\sigma(z)$",
-        title="同じスコアでも、閾値によって判定が変わる",
+        title="ロジスティック回帰のシグモイド",
     )
     ax.spines[["top", "right"]].set_visible(False)
     ax.grid(alpha=0.15)
@@ -188,7 +178,7 @@ def tree():
 def tfidf():
     documents = ["meeting agenda", "meeting report", "prize prize"]
     counts = CountVectorizer().fit_transform(documents).toarray()
-    vectorizer = TfidfVectorizer(sublinear_tf=True, min_df=1)
+    vectorizer = TfidfVectorizer()
     values = vectorizer.fit_transform(documents).toarray()
     words = vectorizer.get_feature_names_out()
     fig, axes = plt.subplots(1, 2, figsize=(11, 3.7), layout="constrained")
@@ -222,9 +212,7 @@ def tfidf():
 
 
 def main():
-    plt.rcParams.update(
-        {"font.family": "Noto Sans CJK JP", "font.size": 11, "svg.hashsalt": "security-ml-seminar"}
-    )
+    plt.rcParams.update({"font.family": "Noto Sans CJK JP", "font.size": 11})
     for draw in (workflow, split_cv, sigmoid, tree, tfidf):
         draw()
 

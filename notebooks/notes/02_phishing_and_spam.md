@@ -3,7 +3,6 @@
 
 本書第2章（pp.13–39）と出版社の配布ノートブックをもとに、コードの順序、変数名、クラス、処理を揃えた。
 コードは[日本語版サンプル](https://github.com/oreilly-japan/ml-security-jp/blob/565def0834d063281ff0776918ad829020919752/ch02/Chapter2.ipynb)を基準とし、本文と違うTF-IDFの設定はPDF記載に合わせている。
-重複除去、ラベルの0/1への変換、Pipeline、3分割、閾値選択は本編に加えていない。
 
 | 本書 | 実習 |
 |---|---|
@@ -11,20 +10,6 @@
 | §2.2.1、pp.14–26 | ロジスティック回帰、5分割CV、Optuna、評価 |
 | §2.2.2、pp.26–29 | 決定木への置き換えと探索 |
 | §2.3、pp.29–38 | Enron1、TF-IDF、LightGBMTunerCV、特徴量重要度 |
-
-### 現在のColabで実行するための変更
-
-| 箇所 | 本書・配布コード | このノートブック |
-|---|---|---|
-| パッケージ | `!pip install optuna` | 同じ`!pip`形式でOptuna 4.5.0、分離された`optuna-integration`、LightGBM 4.6.0を導入 |
-| 決定木 | `max_features`の`auto` | 旧`auto`は`sqrt`と同じ意味なので、重複を統合して`['sqrt', 'log2']` |
-| 語彙名 | `get_feature_names()` | 削除されたAPIを`get_feature_names_out()`に変更 |
-| 学習ログ | `verbose_eval=0` | 削除された引数を`callbacks=[lgb.log_evaluation(0)]`に変更 |
-| 再実行 | 通常の`wget`と`unzip -q` | `wget -O`、`unzip -oq`で既存ファイルを上書き |
-| TF-IDF | 配布コードに`lowercase=False`、PDFには指定なし | PDFどおり`TfidfVectorizer(stop_words="english")` |
-
-`Objective`、`Objective_DTC`、`study.optimize(..., timeout=60)`、`LightGBMTunerCV`、`np.rint`などの基本の書き方は維持した。
-Optunaの`suggest_loguniform`は非推奨の警告が出るが、指定バージョンで動作するので、本書の記述を残している。
 
 ## §2.1 ソーシャルエンジニアリング（pp.13–14）
 
@@ -93,14 +78,15 @@ $$
 
 ![シグモイドと判定閾値の関係](../figures/03_sigmoid.png)
 
-図はスコアと閾値の関係を説明するためのもの。この本編では独自の閾値探索を行わず、`predict`を使う。
-図の横軸の標準化表記は一般的な説明であり、ここでは本書同様、標準化を追加していない。
+図は重み付き和とスコアの関係を示す。ここでは本書どおり`predict`でクラスを求める。
 
 <!-- section: cv -->
 ### 5分割交差検証（pp.20–21）
 
 訓練用80%の内側を5つに分け、4つで学習し、残る1つで評価する。
 評価用を入れ替え、5回の正解率を平均する。最初に取り分けた20%のテストとは別である。
+
+![80:20分割と、訓練部分の5分割交差検証](../figures/02_split_cv.png)
 
 | 回 | fold 1 | fold 2 | fold 3 | fold 4 | fold 5 |
 |---|---|---|---|---|---|
@@ -251,7 +237,7 @@ $$
 本書どおり`fit_transform`のあとに`toarray()`で密にし、DataFrameへ変換する。
 大きな語彙ではメモリを消費するが、本編では疎行列への独自の変更を加えていない。
 また、本書は分割前に全メールで語彙とIDFを学習する。
-厳密な未知データ評価では、分割してから訓練側だけで語彙とIDFを求める必要がある。この違いは発展編で扱う。
+厳密な未知データ評価では、分割してから訓練側だけで語彙とIDFを求める必要がある。本書の結果を読む際にも、この評価上の制約を確認しておく。
 
 <!-- section: lightgbm -->
 ### LightGBMTunerCVによる探索（pp.33–34）
@@ -317,12 +303,23 @@ $h_m$が各木、$\eta$が学習率、$M$が木の本数である。
 2. Optunaが最大化している正解率と、LightGBMTunerCVが最小化するloglossはどう違うか。
 3. 全メールでTF-IDFを学習してから分割すると、評価側のどの情報が学習側へ入るか。
 
-本編は、本書とコードを見比べるための再現である。
-重複排除、訓練内だけのTF-IDF、独立した閾値選択などは`notebooks/advanced/`の発展編へ分けた。
-本編と発展編は分割や評価指標が異なるので、正解率をそのまま比較しない。
-
 §2.5（p.39）のLing-Spam演習は、別コーパスで同じ読み込み・ベクトル化・学習・評価を組む課題である。
 このノートブックには演習の解答を追加していない。
 
 **出典**：『セキュリティエンジニアのための機械学習』第1・2章、日本語版配布コード
 [oreilly-japan/ml-security-jp](https://github.com/oreilly-japan/ml-security-jp)。数式の導出補助、図、注記、確認事項はゼミ用に補った。
+
+
+## 実行環境に関する注記
+
+| 箇所 | 本書・配布コード | このノートブック |
+|---|---|---|
+| パッケージ | `!pip install optuna` | 同じ`!pip`形式でOptuna 4.5.0、分離された`optuna-integration`、LightGBM 4.6.0を導入 |
+| 決定木 | `max_features`の`auto` | 旧`auto`は`sqrt`と同じ意味なので、重複を統合して`['sqrt', 'log2']` |
+| 語彙名 | `get_feature_names()` | 削除されたAPIを`get_feature_names_out()`に変更 |
+| 学習ログ | `verbose_eval=0` | 削除された引数を`callbacks=[lgb.log_evaluation(0)]`に変更 |
+| 再実行 | 通常の`wget`と`unzip -q` | `wget -O`、`unzip -oq`で既存ファイルを上書き |
+| TF-IDF | 配布コードに`lowercase=False`、PDFには指定なし | PDFどおり`TfidfVectorizer(stop_words="english")` |
+
+`Objective`、`Objective_DTC`、`study.optimize(..., timeout=60)`、`LightGBMTunerCV`、`np.rint`などの基本の書き方は維持した。
+Optunaの`suggest_loguniform`は非推奨の警告が出るが、指定バージョンで動作するので、本書の記述を残している。

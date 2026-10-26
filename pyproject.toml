@@ -1,31 +1,8 @@
-[build-system]
-requires = ["setuptools>=75"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "security-ml-colab"
-version = "0.1.0"
-description = "Reproducible phishing and spam detection labs for Google Colab"
-requires-python = ">=3.11"
-dependencies = [
-  "numpy>=2.0,<3", "pandas>=2.2,<3", "scikit-learn==1.7.2",
-  "scipy>=1.13,<2", "matplotlib>=3.9,<4", "optuna==4.5.0", "lightgbm==4.6.0",
-]
-
-[project.optional-dependencies]
-dev = ["pytest>=8,<10", "ruff==0.14.2", "nbformat==5.10.4", "nbclient==0.10.2", "ipykernel>=6,<8"]
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-# Preserve the book's formatting and repeated imports in the main notebooks.
+# Keep the book's formatting and repeated imports in the notebooks.
 extend-exclude = ["notebooks/01_environment.ipynb", "notebooks/02_phishing_and_spam.ipynb"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]

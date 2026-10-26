@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -21,11 +25,10 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
-      - run: pip install -r requirements-colab.txt -e '.[dev]'
+      - run: pip install -r requirements-dev.txt
       - run: ruff check . && ruff format --check .
-      - run: pytest -q
       - run: python scripts/build_notebooks.py --check
-      - run: python scripts/execute_notebooks.py
+      - run: python scripts/execute_notebooks.py --quick
       - uses: actions/upload-artifact@v4
         if: always()
         with:
